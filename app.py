@@ -32,11 +32,15 @@ def convert_tweets_json(json):
     """
     Convert JSON from Twitter API to a 2D array with text, domain, and metrics
     """
+    # print(json)
     columns = ['text', 'domain_name', 'domain_desc', 'likes', 'quotes', 'replies', 'retweets']
     data = []
     for tweet in json['data']:
         # print(tweet.keys())
-        info = [tweet['text'], tweet['context_annotations'][0]['domain']['name'], tweet['context_annotations'][0]['domain']['description'], tweet['public_metrics']['like_count'], tweet['public_metrics']['quote_count'], tweet['public_metrics']['reply_count'], tweet['public_metrics']['retweet_count']]
+        if 'context_annotations' in tweet.keys():
+            info = [tweet['text'], tweet['context_annotations'][0]['domain']['name'], tweet['context_annotations'][0]['domain']['description'], tweet['public_metrics']['like_count'], tweet['public_metrics']['quote_count'], tweet['public_metrics']['reply_count'], tweet['public_metrics']['retweet_count']]
+        else:
+            info = [tweet['text'], 'N/A', 'N/A', tweet['public_metrics']['like_count'], tweet['public_metrics']['quote_count'], tweet['public_metrics']['reply_count'], tweet['public_metrics']['retweet_count']]
         data.append(info)
     return columns, data
 

@@ -9,7 +9,12 @@
   <body>
     <main>
         <h1>Homepage</h1>
-        <p>{{ data }}</p>
+        {% for tweet in data %}
+          <p>{{ tweet[0] }}</p>
+          <p><b>Domain:</b> {{ tweet[1] }}</p>
+          <p><b>Description:</b> {{ tweet[2] }}</p>
+          <p>{{ tweet[3] }} likes, {{ tweet[4] }} quotes, {{ tweet[6] }} retweets, {{ tweet[5] }} replies</p>
+        {% endfor %}
     </main>
   </body>
 </html>
