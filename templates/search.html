@@ -10,14 +10,25 @@
   </head>
   <body>
     <main>
-        <h1>Homepage</h1>
-
+        <h1>Results for {{ hashtag }}</h1>
         <div class="search-bar">
           <p>Find tweets related to a hashtag! (Make sure to include the # in front)</p>
           <form method="post" action="/search">
             <input type="text" name="hashtag">
             <input type="submit" value="Submit">
           </form>
+        </div>
+        <div class="container text-center">
+          <div class="row row-cols-3">
+            {% for tweet in data %}
+              <div class='col tweet'>
+                <p>{{ tweet[0] }}</p>
+                <p><b>Domain:</b> {{ tweet[1] }}</p>
+                <p><b>Description:</b> {{ tweet[2] }}</p>
+                <p>{{ tweet[3] }} likes, {{ tweet[4] }} quotes, {{ tweet[6] }} retweets, {{ tweet[5] }} replies</p>
+              </div>
+            {% endfor %}
+          </div>
         </div>
 
     </main>
