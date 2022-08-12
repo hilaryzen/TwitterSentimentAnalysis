@@ -8,10 +8,19 @@ import numpy as np
 from flair.models import TextClassifier
 classifier = TextClassifier.load('en-sentiment')
 from flair.data import Sentence
+import sqlite3
 app = Flask(__name__)
 
 # export 'BEARER_TOKEN'='<your_bearer_token>'
 bearer_token = os.environ.get("BEARER_TOKEN")
+
+# Create database
+def create_db():
+    db = sqlite3.connect("tweets.db")
+    cursor = connection.cursor()
+    cursor.execute("CREATE TABLE IF NOT EXISTS tweets (text TEXT, domain_name TEXT, domain_desc TEXT, likes INTEGER, quotes INTEGER, replies INTEGER, retweets INTEGER, score INTEGER, pred TEXT)")
+    db.commit()
+    db.close()
 
 # Pull tweets for hashtag from Twitter API
 
@@ -57,8 +66,14 @@ def score_flair(text):
 
 def calculate_sentiment(data, col_values):
     tweets = pd.DataFrame(data = data, columns = col_values)
-    tweets['scores_flair'] = tweets['text'].apply(lambda s: score_flair(s)[0])
-    tweets['pred_flair'] = tweets['text'].apply(lambda s: score_flair(s)[1])
+    tweets['score'] = tweets['text'].apply(lambda s: score_flair(s)[0])
+    tweets['pred'] = tweets['text'].apply(lambda s: score_flair(s)[1])
+    # Add new tweets to SQL db
+    db = sqlite3.connect("tweets.db")
+    tweets.to_sql('tweets', db, if_exists='append', index=False)
+    db.commit()
+    db.close()
+
     return tweets.to_numpy()
 
 @app.route("/", methods=["GET", "POST"])
@@ -80,7 +95,7 @@ def search():
     json_response = connect_to_endpoint(search_url, query_params)
     columns, data = convert_tweets_json(json_response)
     tweets_df = calculate_sentiment(data, columns)
-    # data = [['RT @foodietechlab: [homemade] Flank steak with chimichurri #viral #trending #foodie #foodblogger #foodphotography #ff #tbt #ico https://t.c…', 'Digital Assets & Crypto', 'For cryptocurrency entities', 0, 0, 0, 24], ['RT @foodietechlab: [Homemade] Polish/Carpathian Cream Cake (Karpatka). #viral #trending #foodie #foodblogger #foodphotography #ff #tbt #ico…', 'Entities [Entity Service]', 'Entity Service top level domain, every item that is in Entity Service should be in this domain', 0, 0, 0, 35], ['RT @foodietechlab: [homemade] Ham &amp; Cheese Rolls #viral #trending #foodie #foodblogger #foodphotography #ff #tbt #ico https://t.co/nmcmveT0…', 'Digital Assets & Crypto', 'For cryptocurrency entities', 0, 0, 0, 34], ['#mimicabbatti WAD-FM\n\n#TBT Having a son with a\nWay-Older-guy , \nonly to have your son ask you, \n“How’s the old-man doing ?”\nWould be the joke of a lifetime. \nTony would forever Revel in that joke. https://t.co/tZSbgNFwPK', 'Reoccurring Trends', 'Twitter generated Trends that occur on a daily, weekly, monthly, or yearly basis', 0, 0, 0, 0], ['RT @foodietechlab: [Homemade] egg rolls. #viral #trending #foodie #foodblogger #foodphotography #ff #tbt #ico https://t.co/tsxPUa6K4i', 'Digital Assets & Crypto', 'For cryptocurrency entities', 0, 0, 0, 3], ['RT @tushyraw: #TBT to this stunning @sarah_sultry moment 🔥 What moment do you think back on most? https://t.co/Uu1ZfQrFM9', 'Reoccurring Trends', 'Twitter generated Trends that occur on a daily, weekly, monthly, or yearly basis', 0, 0, 0, 28], ['RT @gethypedllc: Please retweet and follow me @gethypedllc\n#funny #mondaymotivation #tbt #thursdaythoughts #influencermarketing #fridayfeel…', 'Reoccurring Trends', 'Twitter generated Trends that occur on a daily, weekly, monthly, or yearly basis', 0, 0, 0, 1], ['RT @foodietechlab: [Homemade] egg rolls. #viral #trending #foodie #foodblogger #foodphotography #ff #tbt #ico https://t.co/tsxPUa6K4i', 'Digital Assets & Crypto', 'For cryptocurrency entities', 0, 0, 0, 3], ['Please retweet and follow me @gethypedllc\n#funny #mondaymotivation #tbt #thursdaythoughts #influencermarketing #fridayfeeling #influencer #explorepage #viral #trending', 'Reoccurring Trends', 'Twitter generated Trends that occur on a daily, weekly, monthly, or yearly basis', 0, 0, 0, 1], ['RT @Edyellofficial: Keep you Noise out, and get your truly immersive sound in.🎶🎵\n\n#competition #influencer #influencermarketing #fridayfeel…', 'N/A', 'N/A', 0, 0, 0, 2]]
+
     return render_template('search.html', data=tweets_df, hashtag=hashtag)
 
 if __name__ == "__main__":
