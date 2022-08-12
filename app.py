@@ -18,7 +18,7 @@ bearer_token = os.environ.get("BEARER_TOKEN")
 def create_db():
     db = sqlite3.connect("tweets.db")
     cursor = connection.cursor()
-    cursor.execute("CREATE TABLE IF NOT EXISTS tweets (text TEXT, domain_name TEXT, domain_desc TEXT, likes INTEGER, quotes INTEGER, replies INTEGER, retweets INTEGER, score INTEGER, pred TEXT)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS tweets (text TEXT, domain_name TEXT, domain_desc TEXT, likes INTEGER, quotes INTEGER, replies INTEGER, retweets INTEGER, score INTEGER, pred TEXT, score_sign INTEGER, search TEXT)")
     db.commit()
     db.close()
 
@@ -64,17 +64,22 @@ def score_flair(text):
     value = sentence.labels[0].value
     return score, value
 
-def calculate_sentiment(data, col_values):
+def calculate_sentiment(data, col_values, search):
     tweets = pd.DataFrame(data = data, columns = col_values)
+    # Add dataframe columns for sentiment analysis results
     tweets['score'] = tweets['text'].apply(lambda s: score_flair(s)[0])
     tweets['pred'] = tweets['text'].apply(lambda s: score_flair(s)[1])
+    tweets['score_sign'] = tweets.apply(lambda row: round(row['score'], 2) if row['pred'] == 'POSITIVE' else round(-row['score'], 2), axis=1)
+    tweets['search'] = search
+
     # Add new tweets to SQL db
     db = sqlite3.connect("tweets.db")
     tweets.to_sql('tweets', db, if_exists='append', index=False)
     db.commit()
     db.close()
 
-    return tweets.to_numpy()
+    freq = tweets['pred'].value_counts()
+    return tweets.to_numpy(), round(tweets['score_sign'].mean(), 2), freq['POSITIVE'], freq['NEGATIVE']
 
 @app.route("/", methods=["GET", "POST"])
 def home():
@@ -85,18 +90,19 @@ def search():
     # Get searched hashtag
     hashtag = request.form['hashtag']
 
+    # Query Twitter API with search term
     search_url = "https://api.twitter.com/2/tweets/search/recent"
     start_time = datetime.now() - timedelta(days=1)
     start_time = start_time.isoformat('T', 'seconds') + 'Z'
     query = hashtag.strip() + ' lang:en'
-    # Add max_results as a param to increase tweets to 100
-    query_params = {'query': query, 'tweet.fields': 'context_annotations,public_metrics', 'start_time': start_time}
-
+    query_params = {'query': query, 'tweet.fields': 'context_annotations,public_metrics', 'start_time': start_time, 'max_results': 100}
     json_response = connect_to_endpoint(search_url, query_params)
-    columns, data = convert_tweets_json(json_response)
-    tweets_df = calculate_sentiment(data, columns)
 
-    return render_template('search.html', data=tweets_df, hashtag=hashtag)
+    # Transform tweet data and perform sentiment analysis
+    columns, data = convert_tweets_json(json_response)
+    tweets_df, score_mean, num_pos, num_neg = calculate_sentiment(data, columns, hashtag)
+
+    return render_template('search.html', data=tweets_df, hashtag=hashtag, avg=score_mean, num_pos=num_pos, num_neg=num_neg)
 
 if __name__ == "__main__":
     app.debug = True
